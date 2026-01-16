@@ -710,14 +710,6 @@ class ReadableStreamJsController final: public ReadableStreamController {
 
   void doError(jsg::Lock& js, v8::Local<v8::Value> reason);
 
-  // Increment the pending read count to prevent the controller from
-  // being closed/errored while a synchronous callback is in progress.
-  void incrementPendingReadCount();
-
-  // Decrement the pending read count and process any deferred close/error.
-  // This may destroy the ByteReadable/ValueReadable if close was deferred.
-  void decrementPendingReadCountAndProcess(jsg::Lock& js);
-
   bool canCloseOrEnqueue();
   bool hasBackpressure();
 
@@ -824,6 +816,8 @@ class ReadableStreamJsController final: public ReadableStreamController {
 
   friend ReadableLockImpl;
   friend ReadableLockImpl::PipeLocked;
+  friend struct ValueReadable;
+  friend struct ByteReadable;
 
   template <typename Controller>
   friend jsg::Promise<ReadResult> deferControllerStateChange(jsg::Lock& js,
@@ -1861,10 +1855,10 @@ struct ValueReadable final: private api::ValueQueue::ConsumerImpl::StateListener
     KJ_IF_SOME(s, state) {
       // Save a reference to the owner before calling pull. The pull callback
       // may trigger close/error which could destroy this ValueReadable. By
-      // incrementing pendingReadCount, we ensure doClose/doError defers the
+      // using beginOperation(), we ensure doClose/doError defers the
       // actual destruction until after we return.
       ReadableStreamJsController& owner = s.owner;
-      owner.incrementPendingReadCount();
+      owner.state.beginOperation();
 
       // For draining reads, use forcePull to bypass backpressure checks.
       // This ensures we pull all available data regardless of highWaterMark.
@@ -1874,13 +1868,22 @@ struct ValueReadable final: private api::ValueQueue::ConsumerImpl::StateListener
         s.controller->pull(js);
       }
 
-      // Check if state is still valid BEFORE calling decrementPendingReadCountAndProcess,
+      // Check if state is still valid BEFORE calling endOperation(),
       // because that call may destroy this ValueReadable if close was deferred.
       bool result =
           state.map([](State& s2) { return !s2.controller->isPulling(); }).orDefault(false);
 
       // Process any deferred close/error. This may destroy this ValueReadable.
-      owner.decrementPendingReadCountAndProcess(js);
+      if (owner.state.endOperation()) {
+        // A pending state was applied. Call the appropriate callback.
+        if (owner.state.template is<StreamStates::Closed>()) {
+          owner.lock.onClose(js);
+        } else if (owner.state.template is<StreamStates::Errored>()) {
+          KJ_IF_SOME(err, owner.state.template tryGetUnsafe<StreamStates::Errored>()) {
+            owner.lock.onError(js, err.getHandle(js));
+          }
+        }
+      }
 
       return result;
     }
@@ -2087,10 +2090,10 @@ struct ByteReadable final: private api::ByteQueue::ConsumerImpl::StateListener {
     KJ_IF_SOME(s, state) {
       // Save a reference to the owner before calling pull. The pull callback
       // may trigger close/error which could destroy this ByteReadable. By
-      // incrementing pendingReadCount, we ensure doClose/doError defers the
+      // using beginOperation(), we ensure doClose/doError defers the
       // actual destruction until after we return.
       ReadableStreamJsController& owner = s.owner;
-      owner.incrementPendingReadCount();
+      owner.state.beginOperation();
 
       // For draining reads, use forcePull to bypass backpressure checks.
       // This ensures we pull all available data regardless of highWaterMark.
@@ -2100,13 +2103,22 @@ struct ByteReadable final: private api::ByteQueue::ConsumerImpl::StateListener {
         s.controller->pull(js);
       }
 
-      // Check if state is still valid BEFORE calling decrementPendingReadCountAndProcess,
+      // Check if state is still valid BEFORE calling endOperation(),
       // because that call may destroy this ByteReadable if close was deferred.
       bool result =
           state.map([](State& s2) { return !s2.controller->isPulling(); }).orDefault(false);
 
       // Process any deferred close/error. This may destroy this ByteReadable.
-      owner.decrementPendingReadCountAndProcess(js);
+      if (owner.state.endOperation()) {
+        // A pending state was applied. Call the appropriate callback.
+        if (owner.state.template is<StreamStates::Closed>()) {
+          owner.lock.onClose(js);
+        } else if (owner.state.template is<StreamStates::Errored>()) {
+          KJ_IF_SOME(err, owner.state.template tryGetUnsafe<StreamStates::Errored>()) {
+            owner.lock.onError(js, err.getHandle(js));
+          }
+        }
+      }
 
       return result;
     }
@@ -2567,28 +2579,6 @@ void ReadableStreamJsController::doError(jsg::Lock& js, v8::Local<v8::Value> rea
   // via applyPendingState in deferControllerStateChange.
 }
 
-void ReadableStreamJsController::incrementPendingReadCount() {
-  pendingReadCount++;
-}
-
-void ReadableStreamJsController::decrementPendingReadCountAndProcess(jsg::Lock& js) {
-  KJ_ASSERT(pendingReadCount > 0);
-  pendingReadCount--;
-  if (!isReadPending()) {
-    KJ_IF_SOME(pending, maybePendingState) {
-      KJ_SWITCH_ONEOF(pending) {
-        KJ_CASE_ONEOF(closed, StreamStates::Closed) {
-          doClose(js);
-        }
-        KJ_CASE_ONEOF(errored, StreamStates::Errored) {
-          doError(js, errored.getHandle(js));
-        }
-      }
-      maybePendingState = kj::none;
-    }
-  }
-}
-
 bool ReadableStreamJsController::isByteOriented() const {
   return state.is<kj::Own<ByteReadable>>();
 }
@@ -2708,18 +2698,15 @@ kj::Maybe<jsg::Promise<DrainingReadResult>> ReadableStreamJsController::draining
     jsg::Lock& js, size_t maxRead) {
   disturbed = true;
 
-  KJ_IF_SOME(pendingState, maybePendingState) {
-    KJ_SWITCH_ONEOF(pendingState) {
-      KJ_CASE_ONEOF(closed, StreamStates::Closed) {
-        return js.resolvedPromise(DrainingReadResult{
-          .chunks = kj::Array<kj::Array<kj::byte>>(),
-          .done = true,
-        });
-      }
-      KJ_CASE_ONEOF(errored, StreamStates::Errored) {
-        return js.rejectedPromise<DrainingReadResult>(errored.addRef(js));
-      }
-    }
+  // Check for pending state first (deferred close/error during a prior read operation)
+  if (state.pendingStateIs<StreamStates::Closed>()) {
+    return js.resolvedPromise(DrainingReadResult{
+      .chunks = kj::Array<kj::Array<kj::byte>>(),
+      .done = true,
+    });
+  }
+  KJ_IF_SOME(pendingError, state.tryGetPendingStateUnsafe<StreamStates::Errored>()) {
+    return js.rejectedPromise<DrainingReadResult>(pendingError.addRef(js));
   }
 
   // Like deferControllerStateChange for regular reads, we need to prevent the controller
@@ -2730,17 +2717,34 @@ kj::Maybe<jsg::Promise<DrainingReadResult>> ReadableStreamJsController::draining
   auto wrapDrainingRead =
       [this](jsg::Lock& js,
           jsg::Promise<DrainingReadResult> promise) -> jsg::Promise<DrainingReadResult> {
-    pendingReadCount++;
+    state.beginOperation();
     return promise.then(js, [this](jsg::Lock& js, DrainingReadResult result) {
-      decrementPendingReadCountAndProcess(js);
+      if (state.endOperation()) {
+        // A pending state was applied. Call the appropriate callback.
+        if (state.template is<StreamStates::Closed>()) {
+          lock.onClose(js);
+        } else if (state.template is<StreamStates::Errored>()) {
+          KJ_IF_SOME(err, state.template tryGetUnsafe<StreamStates::Errored>()) {
+            lock.onError(js, err.getHandle(js));
+          }
+        }
+      }
       return kj::mv(result);
     }, [this](jsg::Lock& js, jsg::Value exception) -> DrainingReadResult {
-      decrementPendingReadCountAndProcess(js);
+      state.clearPendingState();
+      (void)state.endOperation();
       js.throwException(kj::mv(exception));
     });
   };
 
   KJ_SWITCH_ONEOF(state) {
+    KJ_CASE_ONEOF(initial, Initial) {
+      // Stream not yet set up, treat as closed.
+      return js.resolvedPromise(DrainingReadResult{
+        .chunks = kj::Array<kj::Array<kj::byte>>(),
+        .done = true,
+      });
+    }
     KJ_CASE_ONEOF(closed, StreamStates::Closed) {
       return js.resolvedPromise(DrainingReadResult{
         .chunks = kj::Array<kj::Array<kj::byte>>(),
