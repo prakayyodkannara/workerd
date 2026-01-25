@@ -11,9 +11,8 @@
 namespace workerd::api {
 
 jsg::JsValue SyncKvStorage::get(jsg::Lock& js, kj::String key) {
-  auto span = IoContext::current().makeTraceSpan("durable_object_storage_kv_get"_kjc);
-  auto userSpan = IoContext::current().makeUserTraceSpan("durable_object_storage_kv_get"_kjc);
-  auto traceContext = TraceContext(kj::mv(span), kj::mv(userSpan));
+  TraceContext traceContext =
+      IoContext::current().makeUserTraceSpan("durable_object_storage_kv_get"_kjc);
 
   SqliteKv& sqliteKv = getSqliteKv(js);
 
@@ -33,9 +32,8 @@ jsg::JsValue SyncKvStorage::get(jsg::Lock& js, kj::String key) {
 
 jsg::Ref<SyncKvStorage::ListIterator> SyncKvStorage::list(
     jsg::Lock& js, jsg::Optional<ListOptions> maybeOptions) {
-  auto span = IoContext::current().makeTraceSpan("durable_object_storage_kv_list"_kjc);
-  auto userSpan = IoContext::current().makeUserTraceSpan("durable_object_storage_kv_list"_kjc);
-  auto traceContext = TraceContext(kj::mv(span), kj::mv(userSpan));
+  TraceContext traceContext =
+      IoContext::current().makeUserTraceSpan("durable_object_storage_kv_list"_kjc);
   SqliteKv& sqliteKv = getSqliteKv(js);
 
   traceContext.setTag("db.system.name"_kjc, "cloudflare-durable-object-sql"_kjc);
@@ -103,9 +101,8 @@ kj::Maybe<jsg::JsArray> SyncKvStorage::listNext(jsg::Lock& js, IoOwn<SqliteKv::L
 }
 
 void SyncKvStorage::put(jsg::Lock& js, kj::String key, jsg::JsValue value) {
-  auto span = IoContext::current().makeTraceSpan("durable_object_storage_kv_put"_kjc);
-  auto userSpan = IoContext::current().makeUserTraceSpan("durable_object_storage_kv_put"_kjc);
-  auto traceContext = TraceContext(kj::mv(span), kj::mv(userSpan));
+  TraceContext traceContext =
+      IoContext::current().makeUserTraceSpan("durable_object_storage_kv_put"_kjc);
   SqliteKv& sqliteKv = getSqliteKv(js);
 
   traceContext.setTag("db.system.name"_kjc, "cloudflare-durable-object-sql"_kjc);
@@ -117,9 +114,8 @@ void SyncKvStorage::put(jsg::Lock& js, kj::String key, jsg::JsValue value) {
 }
 
 kj::OneOf<bool, int> SyncKvStorage::delete_(jsg::Lock& js, kj::String key) {
-  auto span = IoContext::current().makeTraceSpan("durable_object_storage_kv_delete"_kjc);
-  auto userSpan = IoContext::current().makeUserTraceSpan("durable_object_storage_kv_delete"_kjc);
-  auto traceContext = TraceContext(kj::mv(span), kj::mv(userSpan));
+  TraceContext traceContext =
+      IoContext::current().makeUserTraceSpan("durable_object_storage_kv_delete"_kjc);
   SqliteKv& sqliteKv = getSqliteKv(js);
 
   traceContext.setTag("db.system.name"_kjc, "cloudflare-durable-object-sql"_kjc);

@@ -1130,6 +1130,7 @@ inline SpanBuilder SpanBuilder::newChild(
 // TraceContext to keep track of user tracing/existing tracing better
 class TraceContext {
  public:
+  TraceContext(): span(nullptr), userSpan(nullptr) {}
   TraceContext(SpanBuilder span, SpanBuilder userSpan)
       : span(kj::mv(span)),
         userSpan(kj::mv(userSpan)) {}
@@ -1140,7 +1141,7 @@ class TraceContext {
   // Set a tag on both the internal span and user span.
   void setTag(kj::ConstString key, SpanBuilder::TagInitValue value);
   bool isObserved() {
-    return span.isObserved() && userSpan.isObserved();
+    return span.isObserved() || userSpan.isObserved();
   }
   SpanParent getInternalSpanParent() {
     return SpanParent(span);

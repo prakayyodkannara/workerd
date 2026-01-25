@@ -27,9 +27,7 @@ jsg::Promise<jsg::Ref<R2Bucket>> R2Admin::create(
     jsg::Lock& js, kj::String name, const jsg::TypeHandler<jsg::Ref<R2Error>>& errorType) {
   auto& context = IoContext::current();
 
-  auto traceSpan = context.makeTraceSpan("r2_create_bucket"_kjc);
-  auto userSpan = context.makeUserTraceSpan("r2_create_bucket"_kjc);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("r2_create_bucket"_kjc);
   auto client = context.getHttpClient(subrequestChannel, true, kj::none, traceContext);
 
   traceContext.setTag("rpc.service"_kjc, "r2"_kjc);
@@ -68,9 +66,7 @@ jsg::Promise<R2Admin::ListResult> R2Admin::list(jsg::Lock& js,
     CompatibilityFlags::Reader flags) {
   auto& context = IoContext::current();
 
-  auto traceSpan = context.makeTraceSpan("r2_list_buckets"_kjc);
-  auto userSpan = context.makeUserTraceSpan("r2_list_buckets"_kjc);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("r2_list_buckets"_kjc);
   auto client = context.getHttpClient(subrequestChannel, true, kj::none, traceContext);
 
   traceContext.setTag("rpc.service"_kjc, "r2"_kjc);
@@ -132,9 +128,7 @@ jsg::Promise<void> R2Admin::delete_(
     jsg::Lock& js, kj::String name, const jsg::TypeHandler<jsg::Ref<R2Error>>& errorType) {
   auto& context = IoContext::current();
 
-  auto traceSpan = context.makeTraceSpan("r2_delete_bucket"_kjc);
-  auto userSpan = context.makeUserTraceSpan("r2_delete_bucket"_kjc);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("r2_delete_bucket"_kjc);
   auto client = context.getHttpClient(subrequestChannel, true, kj::none, traceContext);
 
   traceContext.setTag("rpc.service"_kjc, "r2"_kjc);

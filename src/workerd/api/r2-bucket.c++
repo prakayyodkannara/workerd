@@ -25,9 +25,7 @@
 namespace workerd::api::public_beta {
 kj::Own<kj::HttpClient> r2GetClient(
     IoContext& context, uint subrequestChannel, R2UserTracing user) {
-  auto traceSpan = context.makeTraceSpan(user.op);
-  auto userSpan = context.makeUserTraceSpan(user.op);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan(user.op);
   traceContext.setTag("rpc.service"_kjc, "r2"_kjc);
   traceContext.setTag(user.method.key, user.method.value);
   KJ_IF_SOME(b, user.bucket) {
@@ -442,10 +440,7 @@ jsg::Promise<kj::Maybe<jsg::Ref<R2Bucket::HeadResult>>> R2Bucket::head(jsg::Lock
     CompatibilityFlags::Reader flags) {
   return js.evalNow([&] {
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_head"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_head"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_head"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bindingName()) {
@@ -499,10 +494,7 @@ R2Bucket::get(jsg::Lock& js,
     CompatibilityFlags::Reader flags) {
   return js.evalNow([&] {
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_get"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_get"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_get"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bindingName()) {
@@ -589,10 +581,7 @@ jsg::Promise<kj::Maybe<jsg::Ref<R2Bucket::HeadResult>>> R2Bucket::put(jsg::Lock&
     });
 
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_put"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_put"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_put"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bindingName()) {
@@ -856,10 +845,7 @@ jsg::Promise<jsg::Ref<R2MultipartUpload>> R2Bucket::createMultipartUpload(jsg::L
     const jsg::TypeHandler<jsg::Ref<R2Error>>& errorType) {
   return js.evalNow([&] {
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_createMultipartUpload"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_createMultipartUpload"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_createMultipartUpload"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bindingName()) {
@@ -985,9 +971,7 @@ jsg::Promise<void> R2Bucket::delete_(jsg::Lock& js,
   return js.evalNow([&] {
     auto& context = IoContext::current();
 
-    auto traceSpan = context.makeTraceSpan("r2_delete"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_delete"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_delete"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bindingName()) {
@@ -1047,10 +1031,7 @@ jsg::Promise<R2Bucket::ListResult> R2Bucket::list(jsg::Lock& js,
     CompatibilityFlags::Reader flags) {
   return js.evalNow([&] {
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_list"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_list"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_list"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bindingName()) {

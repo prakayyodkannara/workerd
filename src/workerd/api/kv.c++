@@ -254,9 +254,7 @@ kj::OneOf<jsg::Promise<KvNamespace::GetResult>, jsg::Promise<jsg::JsRef<jsg::JsM
         kj::OneOf<kj::String, kj::Array<kj::String>> name,
         jsg::Optional<kj::OneOf<kj::String, GetOptions>> options) {
   auto& context = IoContext::current();
-  auto traceSpan = context.makeTraceSpan("kv_get"_kjc);
-  auto userSpan = context.makeUserTraceSpan("kv_get"_kjc);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("kv_get"_kjc);
   traceContext.setTag("db.system.name"_kjc, "cloudflare-kv"_kjc);
   traceContext.setTag("db.operation.name"_kjc, "get"_kjc);
   traceContext.setTag("cloudflare.binding.name"_kjc, bindingName.asPtr());
@@ -291,9 +289,7 @@ KvNamespace::getWithMetadata(jsg::Lock& js,
     jsg::Optional<kj::OneOf<kj::String, GetOptions>> options) {
 
   auto& context = IoContext::current();
-  auto traceSpan = context.makeTraceSpan("kv_getWithMetadata"_kjc);
-  auto userSpan = context.makeUserTraceSpan("kv_getWithMetadata"_kjc);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("kv_getWithMetadata"_kjc);
   traceContext.setTag("db.system.name"_kjc, "cloudflare-kv"_kjc);
   traceContext.setTag("db.operation.name"_kjc, "get"_kjc);
   traceContext.setTag("cloudflare.binding.name"_kjc, bindingName.asPtr());
@@ -448,9 +444,7 @@ jsg::Promise<jsg::JsRef<jsg::JsValue>> KvNamespace::list(
     jsg::Lock& js, jsg::Optional<ListOptions> options) {
   return js.evalNow([&] {
     auto& context = IoContext::current();
-    auto traceSpan = context.makeTraceSpan("kv_list"_kjc);
-    auto userSpan = context.makeUserTraceSpan("kv_list"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("kv_list"_kjc);
 
     traceContext.setTag("db.system.name"_kjc, "cloudflare-kv"_kjc);
     traceContext.setTag("db.operation.name"_kjc, "list"_kjc);
@@ -537,9 +531,7 @@ jsg::Promise<void> KvNamespace::put(jsg::Lock& js,
     validateKeyName("PUT", name);
 
     auto& context = IoContext::current();
-    auto traceSpan = context.makeTraceSpan("kv_put"_kjc);
-    auto userSpan = context.makeUserTraceSpan("kv_put"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("kv_put"_kjc);
 
     traceContext.setTag("db.system.name"_kjc, "cloudflare-kv"_kjc);
     traceContext.setTag("db.operation.name"_kjc, "put"_kjc);
@@ -665,9 +657,7 @@ jsg::Promise<void> KvNamespace::delete_(jsg::Lock& js, kj::String name) {
     validateKeyName("DELETE", name);
 
     auto& context = IoContext::current();
-    auto traceSpan = context.makeTraceSpan("kv_delete"_kjc);
-    auto userSpan = context.makeUserTraceSpan("kv_delete"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("kv_delete"_kjc);
 
     traceContext.setTag("db.system.name"_kjc, "cloudflare-kv"_kjc);
     traceContext.setTag("db.operation.name"_kjc, "delete"_kjc);

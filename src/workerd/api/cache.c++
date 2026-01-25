@@ -77,9 +77,7 @@ jsg::Promise<jsg::Optional<jsg::Ref<Response>>> Cache::match(jsg::Lock& js,
     CompatibilityFlags::Reader flags) {
   // TODO(someday): Implement Cache API in preview.
   auto& context = IoContext::current();
-  auto traceSpan = context.makeTraceSpan("cache_match"_kjc);
-  auto userSpan = context.makeUserTraceSpan("cache_match"_kjc);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("cache_match"_kjc);
 
   KJ_IF_SOME(o, options) {
     KJ_IF_SOME(ignoreMethod, o.ignoreMethod) {
@@ -284,9 +282,7 @@ jsg::Promise<void> Cache::put(jsg::Lock& js,
     auto jsRequest = Request::coerce(js, kj::mv(requestOrUrl), kj::none);
 
     auto& context = IoContext::current();
-    auto traceSpan = context.makeTraceSpan("cache_put"_kjc);
-    auto userSpan = context.makeUserTraceSpan("cache_put"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("cache_put"_kjc);
 
     traceContext.setTag("cache.request.url"_kjc, jsRequest->getUrl());
     traceContext.setTag("cache.request.method"_kjc, kj::str(jsRequest->getMethodEnum()));
@@ -556,9 +552,7 @@ jsg::Promise<bool> Cache::delete_(jsg::Lock& js,
     CompatibilityFlags::Reader flags) {
   // TODO(someday): Implement Cache API in preview.
   auto& context = IoContext::current();
-  auto traceSpan = context.makeTraceSpan("cache_delete"_kjc);
-  auto userSpan = context.makeUserTraceSpan("cache_delete"_kjc);
-  TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("cache_delete"_kjc);
 
   KJ_IF_SOME(o, options) {
     KJ_IF_SOME(ignoreMethod, o.ignoreMethod) {

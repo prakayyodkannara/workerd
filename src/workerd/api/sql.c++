@@ -26,9 +26,7 @@ SqlStorage::~SqlStorage() {}
 jsg::Ref<SqlStorage::Cursor> SqlStorage::exec(
     jsg::Lock& js, jsg::JsString querySql, jsg::Arguments<BindingValue> bindings) {
   auto& context = IoContext::current();
-  auto span = context.makeTraceSpan("durable_object_storage_exec"_kjc);
-  auto userSpan = context.makeUserTraceSpan("durable_object_storage_exec"_kjc);
-  auto traceContext = TraceContext(kj::mv(span), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("durable_object_storage_exec"_kjc);
   traceContext.setTag("db.system.name"_kjc, "cloudflare-durable-object-sql"_kjc);
   traceContext.setTag("db.operation.name"_kjc, "exec"_kjc);
   traceContext.setTag("db.query.text"_kjc, kj::str(querySql));
@@ -59,11 +57,12 @@ jsg::Ref<SqlStorage::Cursor> SqlStorage::exec(
   // actually done, which for read queries that iterate over a cursor won't be until later.
   kj::Maybe<kj::Function<void(Cursor&)>> doneCallback;
   if (traceContext.isObserved()) {
-    doneCallback = [traceContext = context.addObject(kj::heap(kj::mv(traceContext)))](Cursor& cursor) mutable {
+    doneCallback = [traceContext = context.addObject(kj::heap(kj::mv(traceContext)))](
+                       Cursor& cursor) mutable {
       int64_t rowsRead = cursor.getRowsRead();
       int64_t rowsWritten = cursor.getRowsWritten();
-      traceContext.setTag("cloudflare.durable_object.response.rows_read"_kjc, rowsRead);
-      traceContext.setTag("cloudflare.durable_object.response.rows_written"_kjc, rowsWritten);
+      traceContext->setTag("cloudflare.durable_object.response.rows_read"_kjc, rowsRead);
+      traceContext->setTag("cloudflare.durable_object.response.rows_written"_kjc, rowsWritten);
     };
   }
 
@@ -96,9 +95,7 @@ jsg::Ref<SqlStorage::Cursor> SqlStorage::exec(
 
 SqlStorage::IngestResult SqlStorage::ingest(jsg::Lock& js, kj::String querySql) {
   auto& context = IoContext::current();
-  auto span = context.makeTraceSpan("durable_object_storage_ingest"_kjc);
-  auto userSpan = context.makeUserTraceSpan("durable_object_storage_ingest"_kjc);
-  auto traceContext = TraceContext(kj::mv(span), kj::mv(userSpan));
+  TraceContext traceContext = context.makeUserTraceSpan("durable_object_storage_ingest"_kjc);
   SqliteDatabase::Regulator& regulator = *this;
   auto result = getDb(js).ingestSql(regulator, querySql);
 
@@ -124,9 +121,8 @@ jsg::Ref<SqlStorage::Statement> SqlStorage::prepare(jsg::Lock& js, jsg::JsString
 
 double SqlStorage::getDatabaseSize(jsg::Lock& js) {
   auto& context = IoContext::current();
-  auto span = context.makeTraceSpan("durable_object_storage_getDatabaseSize"_kjc);
-  auto userSpan = context.makeUserTraceSpan("durable_object_storage_getDatabaseSize"_kjc);
-  auto traceContext = TraceContext(kj::mv(span), kj::mv(userSpan));
+  TraceContext traceContext =
+      context.makeUserTraceSpan("durable_object_storage_getDatabaseSize"_kjc);
   traceContext.setTag("db.operation.name"_kjc, "getDatabaseSize"_kjc);
   auto& db = getDb(js);
   int64_t pages = execMemoized(db, pragmaPageCount,

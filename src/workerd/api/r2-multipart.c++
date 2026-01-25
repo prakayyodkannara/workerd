@@ -41,10 +41,7 @@ jsg::Promise<R2MultipartUpload::UploadedPart> R2MultipartUpload::uploadPart(jsg:
         "Part number must be between 1 and 10000 (inclusive). Actual value was: ", partNumber);
 
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_uploadPart"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_uploadPart"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_uploadPart"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bucket->bindingName()) {
@@ -147,10 +144,7 @@ jsg::Promise<jsg::Ref<R2Bucket::HeadResult>> R2MultipartUpload::complete(jsg::Lo
     const jsg::TypeHandler<jsg::Ref<R2Error>>& errorType) {
   return js.evalNow([&] {
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_completeMultipartUpload"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_completeMultipartUpload"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_completeMultipartUpload"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bucket->bindingName()) {
@@ -218,10 +212,7 @@ jsg::Promise<void> R2MultipartUpload::abort(
     jsg::Lock& js, const jsg::TypeHandler<jsg::Ref<R2Error>>& errorType) {
   return js.evalNow([&] {
     auto& context = IoContext::current();
-
-    auto traceSpan = context.makeTraceSpan("r2_abortMultipartUpload"_kjc);
-    auto userSpan = context.makeUserTraceSpan("r2_abortMultipartUpload"_kjc);
-    TraceContext traceContext(kj::mv(traceSpan), kj::mv(userSpan));
+    TraceContext traceContext = context.makeUserTraceSpan("r2_abortMultipartUpload"_kjc);
 
     traceContext.setTag("cloudflare.binding.type"_kjc, "r2"_kjc);
     KJ_IF_SOME(b, this->bucket->bindingName()) {
