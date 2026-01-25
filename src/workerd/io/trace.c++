@@ -1592,6 +1592,9 @@ void SpanBuilder::addLog(kj::Date timestamp, kj::ConstString key, TagValue value
 }
 
 void TraceContext::setTag(kj::ConstString key, SpanBuilder::TagInitValue value) {
+  if (!isObserved()) {
+    return;
+  }
   // Fast path (without string allocations) if only some spans are observed.
   if (!span.isObserved()) {
     userSpan.setTag(kj::mv(key), kj::mv(value));

@@ -4481,8 +4481,7 @@ kj::Promise<kj::Own<Server::WorkerService>> Server::makeWorkerImpl(kj::StringPtr
     return def.compileBindings(lock, api, target);
   };
   auto worker = kj::atomicRefcounted<Worker>(kj::mv(script), kj::atomicRefcounted<WorkerObserver>(),
-      kj::mv(compileBindings), IsolateObserver::StartType::COLD,
-      TraceParentContext(nullptr, nullptr),  // systemTracer -- TODO(beta): factor out
+      kj::mv(compileBindings), IsolateObserver::StartType::COLD, SpanParetn(nullptr),
       Worker::Lock::TakeSynchronously(kj::none), errorReporter);
 
   uint totalActorChannels = 0;

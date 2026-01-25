@@ -1708,7 +1708,7 @@ Worker::Worker(kj::Own<const Script> scriptParam,
         v8::Local<v8::Object> target,
         v8::Local<v8::Object> ctxExports)> compileBindings,
     IsolateObserver::StartType startType,
-    TraceParentContext spans,
+    SpanParent parentSpan,
     LockType lockType,
     kj::Maybe<ValidationErrorReporter&> errorReporter,
     kj::Maybe<kj::Duration&> startupTime)
@@ -1731,7 +1731,7 @@ Worker::Worker(kj::Own<const Script> scriptParam,
     });
 
     auto maybeMakeSpan = [&](auto operationName) -> SpanBuilder {
-      auto span = spans.parentSpan.newChild(kj::mv(operationName));
+      auto span = parentSpan.newChild(kj::mv(operationName));
       if (span.isObserved()) {
         span.setTag("truncated_script_id"_kjc, truncateScriptId(script->getId()));
       }
@@ -1819,8 +1819,6 @@ Worker::Worker(kj::Own<const Script> scriptParam,
 
             // Execute script.
             currentSpan = maybeMakeSpan("lw:top_level_execution"_kjc);
-            SpanBuilder currentUserSpan =
-                spans.userParentSpan.newChild("lw:top_level_execution"_kjc);
 
             // Ensure that our worker top-level bootstrap has a temporary directory
             // storage scope. This is used to store temporary files created within

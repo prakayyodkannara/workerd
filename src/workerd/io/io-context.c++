@@ -943,11 +943,8 @@ kj::Own<WorkerInterface> IoContext::getSubrequestNoChecks(
         kj::mv(ret), getHeaderIds().contentEncoding, metrics);
   }
 
-  if (tracing.span.isObserved()) {
-    ret = ret.attach(kj::mv(tracing.span));
-  }
-  if (tracing.userSpan.isObserved()) {
-    auto ioOwnedSpan = addObject(kj::heap(kj::mv(tracing.userSpan)));
+  if (tracing.isObserved()) {
+    auto ioOwnedSpan = addObject(kj::heap(kj::mv(tracing)));
     ret = ret.attach(kj::mv(ioOwnedSpan));
   }
 
@@ -1012,7 +1009,7 @@ kj::Own<WorkerInterface> IoContext::getSubrequestChannelImpl(uint channel,
     IoChannelFactory& channelFactory) {
   IoChannelFactory::SubrequestMetadata metadata{
     .cfBlobJson = kj::mv(cfBlobJson),
-    .tracing = tracing,
+    .parentSpan = tracing.getInternalSpanParent(),
     .featureFlagsForFl = mapCopyString(worker->getIsolate().getFeatureFlagsForFl()),
   };
 

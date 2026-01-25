@@ -940,9 +940,7 @@ class FacetOutgoingFactory final: public Fetcher::OutgoingFactory {
 
     return context.getMetrics().wrapActorSubrequestClient(context.getSubrequest(
         [&](TraceContext& tracing, IoChannelFactory& ioChannelFactory) {
-      if (tracing.span.isObserved()) {
-        tracing.span.setTag("facet_name"_kjc, name.asPtr());
-      }
+      tracing.setTag("facet_name"_kjc, name.asPtr());
 
       // Lazily initialize actorChannel
       if (actorChannel == kj::none) {
@@ -950,7 +948,8 @@ class FacetOutgoingFactory final: public Fetcher::OutgoingFactory {
       }
 
       return KJ_REQUIRE_NONNULL(actorChannel)
-          ->startRequest({.cfBlobJson = kj::mv(cfStr), .tracing = tracing});
+          ->startRequest(
+              {.cfBlobJson = kj::mv(cfStr), .parentSpan = tracing.getInternalSpanParent()});
     },
         {.inHouse = true,
           .wrapMetrics = true,
