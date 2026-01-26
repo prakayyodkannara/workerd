@@ -242,6 +242,30 @@ void WorkerEntrypoint::init(kj::Own<const Worker> worker,
                         .attach(kj::mv(actor));
 }
 
+kj::Exception exceptionToPropagate2(bool isInternalException, kj::Exception&& exception) {
+  if (isInternalException) {
+    // We've already logged it here, the only thing that matters to the client is that we failed
+    // due to an internal error. Note that this does not need to be labeled "remote." since jsg
+    // will sanitize it as an internal error. Note that we use `setDescription()` to preserve
+    // the exception type for `jsg::exceptionToJs(...)` downstream.
+    exception.setDescription(kj::str("worker_do_not_log; Request failed due to internal error"));
+    return kj::mv(exception);
+  } else {
+    // We do not care how many remote capnp servers this went through since we are returning
+    // it to the worker via jsg.
+    // TODO(someday) We also do this stripping when making the tunneled exception for
+    // `jsg::isTunneledException(...)`. It would be lovely if we could simply store some type
+    // instead of `loggedExceptionEarlier`. It would save use some work.
+    auto description = jsg::stripRemoteExceptionPrefix(exception.getDescription());
+    if (!description.startsWith("remote.")) {
+      // If we already were annotated as remote from some other worker entrypoint, no point
+      // adding an additional prefix.
+      exception.setDescription(kj::str("remote.", description));
+    }
+    return kj::mv(exception);
+  }
+};
+
 kj::Promise<void> WorkerEntrypoint::request(kj::HttpMethod method,
     kj::StringPtr url,
     const kj::HttpHeaders& headers,
@@ -420,31 +444,6 @@ kj::Promise<void> WorkerEntrypoint::request(kj::HttpMethod method,
       }
     }
 
-    auto exceptionToPropagate = [&]() {
-      if (isInternalException) {
-        // We've already logged it here, the only thing that matters to the client is that we failed
-        // due to an internal error. Note that this does not need to be labeled "remote." since jsg
-        // will sanitize it as an internal error. Note that we use `setDescription()` to preserve
-        // the exception type for `jsg::exceptionToJs(...)` downstream.
-        exception.setDescription(
-            kj::str("worker_do_not_log; Request failed due to internal error"));
-        return kj::mv(exception);
-      } else {
-        // We do not care how many remote capnp servers this went through since we are returning
-        // it to the worker via jsg.
-        // TODO(someday) We also do this stripping when making the tunneled exception for
-        // `jsg::isTunneledException(...)`. It would be lovely if we could simply store some type
-        // instead of `loggedExceptionEarlier`. It would save use some work.
-        auto description = jsg::stripRemoteExceptionPrefix(exception.getDescription());
-        if (!description.startsWith("remote.")) {
-          // If we already were annotated as remote from some other worker entrypoint, no point
-          // adding an additional prefix.
-          exception.setDescription(kj::str("remote.", description));
-        }
-        return kj::mv(exception);
-      }
-    };
-
     if (wrappedResponse->isSent()) {
       // We can't fail open if the response was already sent, so set `failOpenService` null so that
       // that branch isn't taken below.
@@ -456,7 +455,7 @@ kj::Promise<void> WorkerEntrypoint::request(kj::HttpMethod method,
       // TODO(cleanup): We'd really like to tunnel exceptions any time a worker is calling another
       // worker, not just for actors (and W2W below), but getting that right will require cleaning
       // up error handling more generally.
-      return exceptionToPropagate();
+      return exceptionToPropagate2(isInternalException, kj::mv(exception));
     } else KJ_IF_SOME(service, failOpenService) {
       // Fall back to origin.
 
@@ -490,7 +489,7 @@ kj::Promise<void> WorkerEntrypoint::request(kj::HttpMethod method,
       // Like with the isActor check, we want to return exceptions back to the caller.
       // We don't want to handle this case the same as the isActor case though, since we want
       // fail-open to operate normally, which means this case must happen after fail-open handling.
-      return exceptionToPropagate();
+      return exceptionToPropagate2(isInternalException, kj::mv(exception));
     } else {
       // Return error.
 
@@ -624,37 +623,12 @@ kj::Promise<void> WorkerEntrypoint::connect(kj::StringPtr host,
       }
     }
 
-    auto exceptionToPropagate = [&]() {
-      if (isInternalException) {
-        // We've already logged it here, the only thing that matters to the client is that we failed
-        // due to an internal error. Note that this does not need to be labeled "remote." since jsg
-        // will sanitize it as an internal error. Note that we use `setDescription()` to preserve
-        // the exception type for `cjfs::makeInternalError(...)` downstream.
-        exception.setDescription(
-            kj::str("worker_do_not_log; Request failed due to internal error"));
-        return kj::mv(exception);
-      } else {
-        // We do not care how many remote capnp servers this went through since we are returning
-        // it to the worker via jsg.
-        // TODO(someday) We also do this stripping when making the tunneled exception for
-        // `jsg::isTunneledException(...)`. It would be lovely if we could simply store some type
-        // instead of `loggedExceptionEarlier`. It would save use some work.
-        auto description = jsg::stripRemoteExceptionPrefix(exception.getDescription());
-        if (!description.startsWith("remote.")) {
-          // If we already were annotated as remote from some other worker entrypoint, no point
-          // adding an additional prefix.
-          exception.setDescription(kj::str("remote.", description));
-        }
-        return kj::mv(exception);
-      }
-    };
-
     if (isActor || tunnelExceptions) {
       // We want to tunnel exceptions from actors back to the caller.
       // TODO(cleanup): We'd really like to tunnel exceptions any time a worker is calling another
       // worker, not just for actors (and W2W below), but getting that right will require cleaning
       // up error handling more generally.
-      return exceptionToPropagate();
+      return exceptionToPropagate2(isInternalException, kj::mv(exception));
     } else {
       // Return error.
 
@@ -664,10 +638,11 @@ kj::Promise<void> WorkerEntrypoint::connect(kj::StringPtr host,
 
       kj::HttpHeaders headers(threadContext.getHeaderTable());
       if (exception.getType() == kj::Exception::Type::OVERLOADED) {
-        response.reject(503, "Service Unavailable", headers, uint64_t(0));
+        response.reject(503, "Service Unavailable", headers, static_cast<uint64_t>(0));
       } else {
-        response.reject(500, "Internal Server Error", headers, uint64_t(0));
+        response.reject(500, "Internal Server Error", headers, static_cast<uint64_t>(0));
       }
+      // TODO: Set return event here?
 
       return kj::READY_NOW;
     }
