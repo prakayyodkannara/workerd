@@ -85,6 +85,7 @@ jsg::LenientOptional<T> mapAddRef(jsg::Lock& js, jsg::LenientOptional<T>& functi
 
 ExportedHandler ExportedHandler::clone(jsg::Lock& js) {
   return ExportedHandler{
+    .connect{mapAddRef(js, connect)},
     .fetch{mapAddRef(js, fetch)},
     .tail{mapAddRef(js, tail)},
     .trace{mapAddRef(js, trace)},
