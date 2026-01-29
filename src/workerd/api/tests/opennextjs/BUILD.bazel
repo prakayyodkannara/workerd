@@ -1,0 +1,11 @@
+load("//:build/wd_test.bzl", "wd_test")
+
+wd_test(
+    src = "opennext-ssr-test.wd-test",
+    args = ["--experimental"],
+    compat_date = "2024-09-23",
+    data = [
+        "opennext-ssr-test.js",
+        "opennext-ssr-worker.js",
+    ],
+)
